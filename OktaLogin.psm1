@@ -14,7 +14,8 @@ Function Get-OktaSessionToken
             The full Okta account domain. Example: mycompany.okta.com
 
         .PARAMETER Credential
-            PSCredential to use for logon. If unspecified a GUI prompt will be issued.
+            PSCredential to use for logon. If unspecified a GUI prompt will be
+            issued.
 
         .EXAMPLE
             Get-OktaSessionToken -OktaDomain 'mycompany.okta.com' -Credential ( Get-Credential )
