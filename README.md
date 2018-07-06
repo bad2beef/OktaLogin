@@ -2,6 +2,13 @@
 ## About OktaLogin
 See this module’s sister at https://github.com/bad2beef/AWSLogin . In order to facilitate pure PowerShell login for AWS CLI (which itself is Python-based, but no matter…) via Okta SSO one of course needs to handle that pesky Okta login to SAML assertion workflow. This is broken off here as a separate module so that it can be easily installed and used for any other application where you may wish to complete a login via Okta but maintain some programmatic control over behavior. ( *cough* scrapers *cough* fuzzers *cough* )
 
+This module *should* support MFA via:
+
+ * Okta Mobile App push notification
+ * Call
+ * SMS
+ * TTOP
+
 ## Installation
 This is a simple pure PowerShell module. Simply copy the contents of the repository into `Modules\OktaLogin` and you should be ready to go.
 ```powershell

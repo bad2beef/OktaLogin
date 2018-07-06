@@ -19,6 +19,13 @@ Function Get-OktaSessionToken
 
         .EXAMPLE
             Get-OktaSessionToken -OktaDomain 'mycompany.okta.com' -Credential ( Get-Credential )
+
+        .EXAMPLE
+            Get-OktaSessionToken -OktaDomain 'mycompany.okta.com' -Credential ( Get-Credential ) -MFAType token:software:totp -MFACode 123456
+
+        .EXAMPLE
+            Get-OktaSessionToken -OktaDomain 'mycompany.okta.com' -Credential ( Get-Credential ) -MFAType sms
+
     #>
 
     [CmdletBinding()]
@@ -28,7 +35,16 @@ Function Get-OktaSessionToken
         [String]$OktaDomain,
 
         [Parameter(Mandatory=$true)]
-        [System.Management.Automation.PSCredential]$Credential = ( Get-Credential )
+        [System.Management.Automation.PSCredential]$Credential = ( Get-Credential ),
+
+        [ValidateSet(
+            'call',
+            'push',
+            'sms',
+            'token:software:totp'
+        )]
+        [String]$MFAType = 'push',
+        [String]$MFACode
     )
 
     $OktaURI_Authn = ( 'https://{0}/api/v1/authn' -f $OktaDomain )
@@ -55,7 +71,7 @@ Function Get-OktaSessionToken
         return
     }
 
-    Write-Verbose ( 'Login result ''{0}''.' -f $Response.status )
+    Write-Verbose ( 'Login result "{0}".' -f $Response.status )
     If ( $Response.status -like 'SUCCESS' ) # Login os OK, we're done.
     {
         $Response.sessionToken
@@ -63,25 +79,49 @@ Function Get-OktaSessionToken
     ElseIf ( $Response.status -like 'MFA_REQUIRED' ) # Login requires MFA, find and use a factor.
     {
         Write-Verbose 'MFA required. Trying factors.'
+        $TargetFactor = 'push'
+        If ( $MFAType )
+        {
+            $TargetFactor = $MFAType
+        }
+
         ForEach ( $Factor in $Response._embedded.factors )
         {
-            Write-Verbose ( 'Attempting MFA {0}.' -f $Factor.factorType )
-            If ( $Factor.factorType -like 'push' )
+            Write-Verbose ( 'MFA via {0} offered.' -f $Factor.factorType )
+            If ( $Factor.factorType -like ( '{0}*' -f $TargetFactor ) )
             {
-                $OktaURI_Authn_Verify = ( 'https://{0}/api/v1/authn/factors/{1}/verify' -f @( $OktaDomain, $Factor.id ) )
+                Write-Verbose ( 'Attempting MFA {0}.' -f $Factor.factorType )
+                
                 $Parameters = @{
                     'factorId'   = $Factor.id ;
                     'stateToken' = $Response.stateToken ;
                 }
-                
+
+                If ( $Factor.factorType -in @( 'token:software:totp' ) ) # Must submit with factor first time.
+                {
+                    If ( $MFACode )
+                    {
+                        $Parameters['passCode'] = $MFACode
+                    }
+                    Else
+                    {
+                        $FactorCode = ( Read-Host -Prompt ( 'Enter MFA code for {0}' -f $Factor.factorType ) )
+                        $Parameters['passCode'] = $FactorCode
+                    }
+                }
+                ElseIf ( $Factor.factorType -in @( 'call', 'sms', 'push' ) ) # Trigger a push NOW
+                {
+                    Write-Verbose 'Triggering factor code delivery.'
+                }
+
                 While ( $true )
                 {
-                    Write-Verbose ( 'Attempting MFA via {0}.' -f $OktaURI_Authn_Verify )
-
+                    Write-Verbose ( 'Attempting MFA via {0}.' -f $Factor._links.verify.href )
+                    
                     Try
                     {
                         $VerifyResponse = Invoke-RestMethod `
-                            -Uri $OktaURI_Authn_Verify `
+                            -Uri $Factor._links.verify.href `
                             -Method Post `
                             -Headers @{
                                 'Accept'       = 'application/json' ;
@@ -105,9 +145,10 @@ Function Get-OktaSessionToken
                         Write-Error ( 'MFA factor rejected. {0}.' -f $VerifyResponse.status )
                         continue
                     }
-                    ElseIf ( $VerifyResponse.factorResult -like 'WAITING' )
+                    ElseIf ( $VerifyResponse.factorResult -like 'WAITING' ) # PUSH only
                     {
-                        Write-Verbose 'Waiting for factor.'
+
+                        Write-Verbose 'Waiting for app push be acknowledged.'
                         Start-Sleep -Seconds 5
                     }
                     Else
@@ -119,11 +160,11 @@ Function Get-OktaSessionToken
             }
             Else
             {
-                Write-Warning 'Skipping unsupported factor.'
+                Write-Verbose 'Skipping untargeted factor.'
             }
-
-            Write-Error 'No suitable factors could be completed. (Currently only push is supported.)'
         }
+
+        Write-Error 'No suitable factors could be completed.'
     }
     Else
     {
