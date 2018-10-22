@@ -53,9 +53,12 @@ Function Get-OktaSessionToken
         'password'   = $Credential.GetNetworkCredential().Password ;
     }
 
+    $NetSPNSecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol
+
     Write-Verbose ( 'Attempting login to {0}.' -f $OktaURI_Authn )
     Try
     {
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
         $Response = Invoke-RestMethod `
             -URI $OktaURI_Authn `
             -Method Post `
@@ -68,6 +71,7 @@ Function Get-OktaSessionToken
     Catch
     {
         Write-Error ( 'Could not log in. {0}' -f $_.Exception.Message )
+        [System.Net.ServicePointManager]::SecurityProtocol = $NetSPNSecurityProtocol
         return
     }
 
@@ -138,6 +142,7 @@ Function Get-OktaSessionToken
                     If ( $VerifyResponse.status -like 'SUCCESS' )
                     {
                         $VerifyResponse.sessionToken
+                        [System.Net.ServicePointManager]::SecurityProtocol = $NetSPNSecurityProtocol
                         return
                     }
                     ElseIf ( $VerifyResponse.factorResult -like 'REJECTED' )
@@ -170,6 +175,7 @@ Function Get-OktaSessionToken
     {
         Write-Error ( 'Login failed. ''{0}''.' -f $Response.status )
     }
+    [System.Net.ServicePointManager]::SecurityProtocol = $NetSPNSecurityProtocol
 }
 
 Function Get-OktaSAMLAssertion
@@ -202,6 +208,9 @@ Function Get-OktaSAMLAssertion
         [String]$OktaSessionToken
     )
 
+    [System.Net.ServicePointManager]::SecurityProtocol = $NetSPNSecurityProtocol
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+
     Try
     {
         $Response = Invoke-WebRequest `
@@ -211,6 +220,7 @@ Function Get-OktaSAMLAssertion
     Catch
     {
         Write-Error ( 'Could not complete request for SAML assertion. {0}' -f $_.Exception.Message )
+        [System.Net.ServicePointManager]::SecurityProtocol = $NetSPNSecurityProtocol
         return
     }
     
@@ -222,4 +232,6 @@ Function Get-OktaSAMLAssertion
     {
         Write-Error ( 'Web request failed. {0}.' -f $Response.StatusDescription )
     }
+
+    [System.Net.ServicePointManager]::SecurityProtocol = $NetSPNSecurityProtocol
 }
