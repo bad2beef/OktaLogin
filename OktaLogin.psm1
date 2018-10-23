@@ -208,7 +208,7 @@ Function Get-OktaSAMLAssertion
         [String]$OktaSessionToken
     )
 
-    [System.Net.ServicePointManager]::SecurityProtocol = $NetSPNSecurityProtocol
+    $NetSPNSecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
 
     Try
