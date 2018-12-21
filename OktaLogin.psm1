@@ -83,16 +83,11 @@ Function Get-OktaSessionToken
     ElseIf ( $Response.status -like 'MFA_REQUIRED' ) # Login requires MFA, find and use a factor.
     {
         Write-Verbose 'MFA required. Trying factors.'
-        $TargetFactor = 'push'
-        If ( $MFAType )
-        {
-            $TargetFactor = $MFAType
-        }
 
         ForEach ( $Factor in $Response._embedded.factors )
         {
             Write-Verbose ( 'MFA via {0} offered.' -f $Factor.factorType )
-            If ( $Factor.factorType -like ( '{0}*' -f $TargetFactor ) )
+            If ( $Factor.factorType -like ( '{0}*' -f $MFAType ) )
             {
                 Write-Verbose ( 'Attempting MFA {0}.' -f $Factor.factorType )
                 
@@ -112,10 +107,6 @@ Function Get-OktaSessionToken
                         $FactorCode = ( Read-Host -Prompt ( 'Enter MFA code for {0}' -f $Factor.factorType ) )
                         $Parameters['passCode'] = $FactorCode
                     }
-                }
-                ElseIf ( $Factor.factorType -in @( 'call', 'sms', 'push' ) ) # Trigger a push NOW
-                {
-                    Write-Verbose 'Triggering factor code delivery.'
                 }
 
                 While ( $true )
@@ -154,7 +145,7 @@ Function Get-OktaSessionToken
                     {
 
                         Write-Verbose 'Waiting for app push be acknowledged.'
-                        Start-Sleep -Seconds 5
+                        Start-Sleep -Seconds 3
                     }
                     Else
                     {
