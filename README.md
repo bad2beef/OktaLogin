@@ -4,10 +4,10 @@ See this module’s sister at https://github.com/bad2beef/AWSLogin . In order to
 
 This module *should* support MFA via:
 
- * Okta Mobile App push notification
+ * Okta Verify App push notification
  * Call
  * SMS
- * TTOP
+ * TOTP
 
 ## Installation
 This is a simple pure PowerShell module. Simply copy the contents of the repository into `Modules\OktaLogin` and you should be ready to go.
