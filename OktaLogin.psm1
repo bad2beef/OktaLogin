@@ -6,7 +6,7 @@ Function Get-OktaSessionToken
     Gets an Okta Session Token.
 
     .DESCRIPTION
-    Gets and Okta Session Token. Okta Session Tokens are valid initial
+    Gets an Okta Session Token. Okta Session Tokens are valid initial
     logons to Okta and cannot be used to directly access integrated
     applications.
     
@@ -21,7 +21,7 @@ Function Get-OktaSessionToken
     Get-OktaSessionToken -OktaDomain 'mycompany.okta.com' -Credential ( Get-Credential )
 
     .EXAMPLE
-     Get-OktaSessionToken -OktaDomain 'mycompany.okta.com' -Credential ( Get-Credential ) -MFAType token:software:totp -MFACode 123456
+    Get-OktaSessionToken -OktaDomain 'mycompany.okta.com' -Credential ( Get-Credential ) -MFAType token:software:totp -MFACode 123456
 
     .EXAMPLE
     Get-OktaSessionToken -OktaDomain 'mycompany.okta.com' -Credential ( Get-Credential ) -MFAType sms
@@ -52,8 +52,12 @@ Function Get-OktaSessionToken
 
   $OktaURI_Authn = ( 'https://{0}/api/v1/authn' -f $OktaDomain )
   $Parameters = @{
-    'username'   = $Credential.UserName ;
-    'password'   = $Credential.GetNetworkCredential().Password ;
+    'username'   = $Credential.UserName
+    'password'   = $Credential.GetNetworkCredential().Password
+  }
+  $headers = @{
+    'Accept'       = 'application/json'
+    'Content-Type' = 'application/json'
   }
 
   $NetSPNSecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol
@@ -65,10 +69,7 @@ Function Get-OktaSessionToken
     $Response = Invoke-RestMethod `
       -URI $OktaURI_Authn `
       -Method Post `
-      -Headers @{
-        'Accept'     = 'application/json' ;
-        'Content-Type' = 'application/json' ;
-      } `
+      -Headers $headers `
       -Body ( $Parameters | ConvertTo-Json )
   }
   Catch
@@ -79,7 +80,7 @@ Function Get-OktaSessionToken
   }
 
   Write-Verbose ( 'Login result "{0}".' -f $Response.status )
-  If ( $Response.status -like 'SUCCESS' ) # Login os OK, we're done.
+  If ( $Response.status -like 'SUCCESS' ) # Login is OK, we're done.
   {
     $Response.sessionToken
   }
@@ -95,8 +96,8 @@ Function Get-OktaSessionToken
         Write-Verbose ( 'Attempting MFA {0}.' -f $Factor.factorType )
         
         $Parameters = @{
-          'factorId'   = $Factor.id ;
-          'stateToken' = $Response.stateToken ;
+          'factorId'   = $Factor.id
+          'stateToken' = $Response.stateToken
         }
 
         If ( $Factor.factorType -in @( 'token:software:totp' ) ) # Must submit with factor first time.
@@ -121,10 +122,7 @@ Function Get-OktaSessionToken
             $VerifyResponse = Invoke-RestMethod `
               -Uri $Factor._links.verify.href `
               -Method Post `
-              -Headers @{
-                'Accept'     = 'application/json' ;
-                'Content-Type' = 'application/json' ;
-              } `
+              -Headers $headers `
               -Body ( $Parameters | ConvertTo-Json )
           }
           Catch
@@ -182,7 +180,7 @@ Function Get-OktaSAMLAssertion
       Gets a SAML assertion for an Okta-integrated application.
     
     .PARAMETER OktaAppURI
-      The full URI to the Okta app instance. This is the URI one would navigate to if clicking on the application instance in the Okta porta.
+      The full URI to the Okta app instance. This is the URI one would navigate to if clicking on the application instance in the Okta portal.
 
     .PARAMETER OktaSessionToken
       A valid Okta session token. See Get-OktaSessionToken .
